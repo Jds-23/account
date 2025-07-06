@@ -58,6 +58,9 @@ abstract contract GuardianManager {
     /// @dev The guardian is not accepted.
     error GuardianNotAdded();
 
+    /// @dev The guardian status update failed.
+    error GuardianStatusUpdateFailed();
+
     ////////////////////////////////////////////////////////////////////////
     // Events
     ////////////////////////////////////////////////////////////////////////
@@ -133,63 +136,12 @@ abstract contract GuardianManager {
         // Check if guardian is accepted before removal
         bool wasAccepted = $.accountGuardians[account].isAccepted(guardian);
 
-        // Get current counts
-        uint8 currentGuardianCount = $
-            .accountGuardiansConfig[account]
-            .getGuardianCount();
-        uint8 currentAcceptedCount = $
-            .accountGuardiansConfig[account]
-            .getAcceptedCount();
-        uint8 currentThreshold = $
-            .accountGuardiansConfig[account]
-            .getThreshold();
+        $.accountGuardians[account].removeGuardian(guardian);
 
-        // Calculate new counts after removal
-        uint8 newGuardianCount = currentGuardianCount - 1;
-        uint8 newAcceptedCount = wasAccepted
-            ? currentAcceptedCount - 1
-            : currentAcceptedCount;
-
-        // Update accepted count first if the guardian was accepted
-        if (wasAccepted && currentAcceptedCount > 0) {
-            // Handle threshold validation issues like in updateGuardianStatus
-            if (currentThreshold > newAcceptedCount) {
-                if (newAcceptedCount > 0) {
-                    $.accountGuardiansConfig[account].setThreshold(
-                        newAcceptedCount
-                    );
-                    $.accountGuardiansConfig[account].decrementAcceptedCount();
-                } else {
-                    // Special case: going to 0 accepted guardians
-                    $.accountGuardiansConfig[account].setThreshold(1);
-
-                    // Manually set accepted count to 0
-                    bytes memory currentData = $
-                        .accountGuardiansConfig[account]
-                        .get();
-                    if (currentData.length > 1) {
-                        currentData[1] = bytes1(0);
-                        $.accountGuardiansConfig[account].set(currentData);
-                    }
-
-                    $.accountGuardiansConfig[account].setThreshold(0);
-                }
-            } else {
-                $.accountGuardiansConfig[account].decrementAcceptedCount();
-            }
-        }
-
-        // Update guardian count - handle edge case of removing last guardian
-        if (newGuardianCount == 0) {
-            // When removing the last guardian, ensure threshold is 0 first
-            if (currentThreshold > 0) {
-                $.accountGuardiansConfig[account].setThreshold(0);
-            }
-        }
         $.accountGuardiansConfig[account].decrementGuardianCount();
-
-        // Remove guardian
-        $.accountGuardians[account].remove(guardian);
+        if (wasAccepted) {
+            $.accountGuardiansConfig[account].decrementAcceptedCount();
+        }
         emit GuardianRemoved(account, guardian);
     }
 
@@ -220,67 +172,8 @@ abstract contract GuardianManager {
         if (!$.accountGuardians[account].contains(guardian))
             revert GuardianNotAdded();
 
-        LibGuardianMap.GuardianStatus currentStatus = $
-            .accountGuardians[account]
-            .getStatus(guardian);
-
-        // Update accepted count based on status transition
-        if (
-            currentStatus == LibGuardianMap.GuardianStatus.REQUESTED &&
-            newStatus == LibGuardianMap.GuardianStatus.ACCEPTED
-        ) {
-            $.accountGuardiansConfig[account].incrementAcceptedCount();
-        } else if (
-            currentStatus == LibGuardianMap.GuardianStatus.ACCEPTED &&
-            newStatus == LibGuardianMap.GuardianStatus.REQUESTED
-        ) {
-            uint8 acceptedCount = $
-                .accountGuardiansConfig[account]
-                .getAcceptedCount();
-            uint8 threshold = $.accountGuardiansConfig[account].getThreshold();
-
-            if (acceptedCount > 0) {
-                uint8 newAcceptedCount = acceptedCount - 1;
-
-                // Handle the case where threshold would become invalid
-                if (threshold > newAcceptedCount) {
-                    // First adjust threshold to be valid
-                    if (newAcceptedCount > 0) {
-                        $.accountGuardiansConfig[account].setThreshold(
-                            newAcceptedCount
-                        );
-                        // Now we can safely decrement
-                        $
-                            .accountGuardiansConfig[account]
-                            .decrementAcceptedCount();
-                    } else {
-                        // Special case: going to 0 accepted guardians
-                        // We need to manually handle this because the library validation is too strict
-
-                        // First set threshold to 1 to prepare for accepted count decrement
-                        $.accountGuardiansConfig[account].setThreshold(1);
-
-                        // Manually decrement accepted count to 0 (bypassing strict validation)
-                        // This is safe because we immediately set threshold to 0 after
-                        bytes memory currentData = $
-                            .accountGuardiansConfig[account]
-                            .get();
-                        if (currentData.length > 1) {
-                            currentData[1] = bytes1(0); // Set accepted count to 0
-                            $.accountGuardiansConfig[account].set(currentData);
-                        }
-
-                        // Now set threshold to 0
-                        $.accountGuardiansConfig[account].setThreshold(0);
-                    }
-                } else {
-                    // Threshold is already valid, just decrement
-                    $.accountGuardiansConfig[account].decrementAcceptedCount();
-                }
-            }
-        }
-
         $.accountGuardians[account].updateStatus(guardian, newStatus);
+        $.accountGuardiansConfig[account].incrementAcceptedCount();
         emit GuardianStatusChanged(account, guardian, newStatus);
     }
 }

@@ -7,7 +7,7 @@ import {LibGuardianMap} from "../src/libraries/LibGuardianMap.sol";
 import {LibGuardianConfig} from "../src/libraries/LibGuardianConfig.sol";
 import {LibBytes} from "solady/utils/LibBytes.sol";
 import {EnumerableMapLib} from "solady/utils/EnumerableMapLib.sol";
-import {console} from "forge-std/console.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 contract MockGuardianManager is GuardianManager {
     using LibBytes for LibBytes.BytesStorage;
@@ -152,20 +152,28 @@ contract GuardianManagerTest is BaseTest {
     }
 
     function test_SetupGuardians_EmitsEvents() public {
-        vm.expectEmit(true, true, false, true);
-        emit GuardianAdded(testAccount, testGuardians[0]);
-
-        vm.expectEmit(true, true, false, true);
-        emit GuardianAdded(testAccount, testGuardians[1]);
-
-        vm.expectEmit(true, true, false, true);
-        emit GuardianAdded(testAccount, testGuardians[2]);
+        vm.recordLogs();
 
         guardianManager.setupGuardians(
             testAccount,
             testGuardians,
             testThreshold
         );
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        // Should emit exactly 3 GuardianAdded events
+        assertEq(logs.length, 3);
+
+        // Check each event
+        for (uint256 i = 0; i < 3; i++) {
+            assertEq(
+                logs[i].topics[0],
+                keccak256("GuardianAdded(address,address)")
+            );
+            assertEq(address(uint160(uint256(logs[i].topics[1]))), testAccount);
+            assertEq(abi.decode(logs[i].data, (address)), testGuardians[i]);
+        }
     }
 
     function test_SetupGuardians_RevertIf_GuardianAlreadyExists() public {
@@ -216,10 +224,17 @@ contract GuardianManagerTest is BaseTest {
     function test_AddGuardian_Success() public {
         address newGuardian = address(0x4);
 
-        vm.expectEmit(true, true, false, true);
-        emit GuardianAdded(testAccount, newGuardian);
-
+        vm.recordLogs();
         guardianManager.addGuardian(testAccount, newGuardian);
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        assertEq(logs.length, 1);
+        assertEq(
+            logs[0].topics[0],
+            keccak256("GuardianAdded(address,address)")
+        );
+        assertEq(address(uint160(uint256(logs[0].topics[1]))), testAccount);
+        assertEq(abi.decode(logs[0].data, (address)), newGuardian);
 
         LibGuardianMap.GuardianStatus status = guardianManager
             .getGuardianStatus(testAccount, newGuardian);
@@ -254,10 +269,20 @@ contract GuardianManagerTest is BaseTest {
             testThreshold
         );
 
-        vm.expectEmit(true, true, false, true);
-        emit GuardianRemoved(testAccount, testGuardians[0]);
-
+        vm.recordLogs();
         guardianManager.removeGuardian(testAccount, testGuardians[0]);
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        assertEq(logs.length, 1);
+        assertEq(
+            logs[0].topics[0],
+            keccak256("GuardianRemoved(address,address)")
+        );
+        assertEq(address(uint160(uint256(logs[0].topics[1]))), testAccount);
+        assertEq(
+            address(uint160(uint256(logs[0].topics[2]))),
+            testGuardians[0]
+        );
 
         LibGuardianMap.GuardianStatus status = guardianManager
             .getGuardianStatus(testAccount, testGuardians[0]);
@@ -366,7 +391,7 @@ contract GuardianManagerTest is BaseTest {
         );
     }
 
-    function test_UpdateGuardianStatus_AcceptedToRequested() public {
+    function test_UpdateGuardianStatus_RevertIf_AcceptedToRequested() public {
         guardianManager.setupGuardians(
             testAccount,
             testGuardians,
@@ -380,30 +405,91 @@ contract GuardianManagerTest is BaseTest {
             LibGuardianMap.GuardianStatus.ACCEPTED
         );
 
-        // Check the accepted count increased
-        (, uint8 acceptedCount, ) = guardianManager.getGuardianConfig(
-            testAccount
-        );
-        assertEq(acceptedCount, 1);
-
-        // Then revert to requested
+        // Then try to revert to requested - should fail
+        vm.expectRevert(LibGuardianMap.InvalidStatusTransition.selector);
         guardianManager.updateGuardianStatus(
             testAccount,
             testGuardians[0],
             LibGuardianMap.GuardianStatus.REQUESTED
         );
+    }
 
-        LibGuardianMap.GuardianStatus status = guardianManager
-            .getGuardianStatus(testAccount, testGuardians[0]);
-        assertEq(uint8(status), uint8(LibGuardianMap.GuardianStatus.REQUESTED));
-
-        assertFalse(
-            guardianManager.isGuardianAccepted(testAccount, testGuardians[0])
+    function test_UpdateGuardianStatus_RevertIf_RequestedToNone() public {
+        guardianManager.setupGuardians(
+            testAccount,
+            testGuardians,
+            testThreshold
         );
 
-        // Check the accepted count decreased
-        (, acceptedCount, ) = guardianManager.getGuardianConfig(testAccount);
-        assertEq(acceptedCount, 0);
+        // Try to set status to NONE - should fail
+        vm.expectRevert(LibGuardianMap.InvalidStatusTransition.selector);
+        guardianManager.updateGuardianStatus(
+            testAccount,
+            testGuardians[0],
+            LibGuardianMap.GuardianStatus.NONE
+        );
+    }
+
+    function test_UpdateGuardianStatus_RevertIf_AcceptedToNone() public {
+        guardianManager.setupGuardians(
+            testAccount,
+            testGuardians,
+            testThreshold
+        );
+
+        // First accept
+        guardianManager.updateGuardianStatus(
+            testAccount,
+            testGuardians[0],
+            LibGuardianMap.GuardianStatus.ACCEPTED
+        );
+
+        // Try to set status to NONE - should fail
+        vm.expectRevert(LibGuardianMap.InvalidStatusTransition.selector);
+        guardianManager.updateGuardianStatus(
+            testAccount,
+            testGuardians[0],
+            LibGuardianMap.GuardianStatus.NONE
+        );
+    }
+
+    function test_UpdateGuardianStatus_RevertIf_RequestedToRequested() public {
+        guardianManager.setupGuardians(
+            testAccount,
+            testGuardians,
+            testThreshold
+        );
+
+        // Try to set status to same status (REQUESTED) - should fail
+        vm.expectRevert(LibGuardianMap.InvalidStatusTransition.selector);
+        guardianManager.updateGuardianStatus(
+            testAccount,
+            testGuardians[0],
+            LibGuardianMap.GuardianStatus.REQUESTED
+        );
+    }
+
+    function test_UpdateGuardianStatus_RevertIf_AcceptedToAccepted() public {
+        guardianManager.setupGuardians(
+            testAccount,
+            testGuardians,
+            testThreshold
+        );
+
+        // First accept
+        guardianManager.updateGuardianStatus(
+            testAccount,
+            testGuardians[0],
+            LibGuardianMap.GuardianStatus.ACCEPTED
+        );
+
+        // Try to set status to same status (ACCEPTED) - should fail
+        vm.expectRevert(LibGuardianMap.InvalidStatusTransition.selector);
+        guardianManager.updateGuardianStatus(
+            testAccount,
+            testGuardians[0],
+            LibGuardianMap.GuardianStatus.ACCEPTED
+        );
     }
 
     function test_UpdateGuardianStatus_RevertIf_GuardianNotAdded() public {
@@ -497,8 +583,7 @@ contract GuardianManagerTest is BaseTest {
 
     function testFuzz_UpdateGuardianStatus_ValidTransitions(
         address account,
-        address guardian,
-        bool acceptFirst
+        address guardian
     ) public {
         vm.assume(account != address(0));
         vm.assume(guardian != address(0));
@@ -506,47 +591,16 @@ contract GuardianManagerTest is BaseTest {
 
         guardianManager.addGuardian(account, guardian);
 
-        if (acceptFirst) {
-            guardianManager.updateGuardianStatus(
-                account,
-                guardian,
-                LibGuardianMap.GuardianStatus.ACCEPTED
-            );
+        // Only test REQUESTED -> ACCEPTED transition (the only valid one)
+        guardianManager.updateGuardianStatus(
+            account,
+            guardian,
+            LibGuardianMap.GuardianStatus.ACCEPTED
+        );
 
-            LibGuardianMap.GuardianStatus status = guardianManager
-                .getGuardianStatus(account, guardian);
-            assertEq(
-                uint8(status),
-                uint8(LibGuardianMap.GuardianStatus.ACCEPTED)
-            );
-
-            // Test reverting back to requested
-            guardianManager.updateGuardianStatus(
-                account,
-                guardian,
-                LibGuardianMap.GuardianStatus.REQUESTED
-            );
-
-            status = guardianManager.getGuardianStatus(account, guardian);
-            assertEq(
-                uint8(status),
-                uint8(LibGuardianMap.GuardianStatus.REQUESTED)
-            );
-        } else {
-            // Test accepting from requested
-            guardianManager.updateGuardianStatus(
-                account,
-                guardian,
-                LibGuardianMap.GuardianStatus.ACCEPTED
-            );
-
-            LibGuardianMap.GuardianStatus status = guardianManager
-                .getGuardianStatus(account, guardian);
-            assertEq(
-                uint8(status),
-                uint8(LibGuardianMap.GuardianStatus.ACCEPTED)
-            );
-        }
+        LibGuardianMap.GuardianStatus status = guardianManager
+            .getGuardianStatus(account, guardian);
+        assertEq(uint8(status), uint8(LibGuardianMap.GuardianStatus.ACCEPTED));
     }
 
     function testFuzz_MultipleGuardians_Operations(

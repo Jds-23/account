@@ -133,7 +133,12 @@ library LibGuardianConfig {
         uint8 currentAccepted = self.uint8At(ACCEPTED_COUNT_INDEX);
         if (currentAccepted == 0) revert AcceptedCountUnderflow();
 
+        uint8 totalGuardians = self.uint8At(GUARDIAN_COUNT_INDEX);
+
         uint8 newAccepted = currentAccepted - 1;
+
+        if (newAccepted > totalGuardians) revert AcceptedCountUnderflow();
+
         uint8 threshold = self.uint8At(THRESHOLD_INDEX);
 
         if (threshold > newAccepted) {

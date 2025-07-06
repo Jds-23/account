@@ -95,10 +95,6 @@ library LibGuardianMap {
         address guardian,
         GuardianStatus newStatus
     ) internal returns (bool success) {
-        if (newStatus == GuardianStatus.NONE) {
-            return removeGuardian(self, guardian);
-        }
-
         if (!self.contains(guardian)) {
             revert GuardianNotFound();
         }
@@ -168,16 +164,6 @@ library LibGuardianMap {
     ) private pure returns (bool isValid) {
         // REQUESTED -> ACCEPTED is always valid
         if (from == GuardianStatus.REQUESTED && to == GuardianStatus.ACCEPTED) {
-            return true;
-        }
-
-        // Same status is valid (no-op)
-        if (from == to) {
-            return true;
-        }
-
-        // ACCEPTED -> REQUESTED is allowed for flexibility
-        if (from == GuardianStatus.ACCEPTED && to == GuardianStatus.REQUESTED) {
             return true;
         }
 
