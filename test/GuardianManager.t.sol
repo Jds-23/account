@@ -329,7 +329,7 @@ contract GuardianManagerTest is BaseTest {
             .getGuardianConfig(testAccount);
         assertEq(guardianCount, 2);
         assertEq(acceptedCount, 0);
-        assertEq(threshold, 0); // Threshold should be adjusted to 0 since no accepted guardians
+        assertEq(threshold, 2); // Threshold are not changed
     }
 
     function test_ChangeThreshold_Success() public {
@@ -660,6 +660,7 @@ contract GuardianManagerTest is BaseTest {
         singleGuardian[0] = address(0x1);
 
         guardianManager.setupGuardians(testAccount, singleGuardian, 1);
+        guardianManager.changeThreshold(testAccount, 0);
         guardianManager.removeGuardian(testAccount, singleGuardian[0]);
 
         (uint8 guardianCount, , ) = guardianManager.getGuardianConfig(

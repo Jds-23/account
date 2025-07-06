@@ -2,6 +2,8 @@
 pragma solidity ^0.8.23;
 
 import {LibBytes} from "solady/utils/LibBytes.sol";
+/// @note need handle cases where, initialy threshold > acceptedCount. So removal of accepted guardian will cause underflow.
+/// let's consider acceptedCount can be < threshold
 
 /// @title LibGuardianConfig
 /// @notice Helper library for managing guardian configurations using optimized byte storage
@@ -133,17 +135,7 @@ library LibGuardianConfig {
         uint8 currentAccepted = self.uint8At(ACCEPTED_COUNT_INDEX);
         if (currentAccepted == 0) revert AcceptedCountUnderflow();
 
-        uint8 totalGuardians = self.uint8At(GUARDIAN_COUNT_INDEX);
-
         uint8 newAccepted = currentAccepted - 1;
-
-        if (newAccepted > totalGuardians) revert AcceptedCountUnderflow();
-
-        uint8 threshold = self.uint8At(THRESHOLD_INDEX);
-
-        if (threshold > newAccepted) {
-            revert AcceptedCountUnderflow();
-        }
 
         _updateByteAt(self, ACCEPTED_COUNT_INDEX, newAccepted);
     }
