@@ -33,11 +33,7 @@ abstract contract GuardianManager {
     // }
 
     /// @dev Returns the storage pointer.
-    function _getGuardianStorage()
-        internal
-        pure
-        returns (GuardianStorage storage $)
-    {
+    function _getGuardianStorage() internal pure returns (GuardianStorage storage $) {
         // Truncate to 9 bytes to reduce bytecode size.
         uint256 s = uint72(bytes9(keccak256("ITHACA_GUARDIAN_STORAGE")));
         assembly ("memory-safe") {
@@ -73,9 +69,7 @@ abstract contract GuardianManager {
 
     /// @dev The guardian status has been changed.
     event GuardianStatusChanged(
-        address indexed account,
-        address indexed guardian,
-        LibGuardianMap.GuardianStatus status
+        address indexed account, address indexed guardian, LibGuardianMap.GuardianStatus status
     );
 
     /// @dev The threshold has been changed.
@@ -93,19 +87,15 @@ abstract contract GuardianManager {
      * @param guardians An array of guardian addresses
      * @param threshold The threshold weight required for guardians to approve recovery attempts
      */
-    function _setupGuardians(
-        address account,
-        address[] calldata guardians,
-        uint8 threshold
-    ) internal {
+    function _setupGuardians(address account, address[] calldata guardians, uint8 threshold)
+        internal
+    {
         GuardianStorage storage $ = _getGuardianStorage();
-        $.accountGuardiansConfig[account].initConfig(
-            uint8(guardians.length),
-            threshold
-        );
+        $.accountGuardiansConfig[account].initConfig(uint8(guardians.length), threshold);
         for (uint256 i = 0; i < guardians.length; i++) {
-            if (guardians[i] == address(0) || guardians[i] == account)
+            if (guardians[i] == address(0) || guardians[i] == account) {
                 revert InvalidGuardian();
+            }
             $.accountGuardians[account].addGuardian(guardians[i]); // add with status REQUESTED
             emit GuardianAdded(account, guardians[i]);
         }
@@ -118,8 +108,9 @@ abstract contract GuardianManager {
      */
     function _addGuardian(address account, address guardian) internal {
         GuardianStorage storage $ = _getGuardianStorage();
-        if (guardian == address(0) || guardian == account)
+        if (guardian == address(0) || guardian == account) {
             revert InvalidGuardian();
+        }
         $.accountGuardians[account].addGuardian(guardian);
         $.accountGuardiansConfig[account].incrementGuardianCount();
         emit GuardianAdded(account, guardian);
@@ -169,8 +160,9 @@ abstract contract GuardianManager {
         LibGuardianMap.GuardianStatus newStatus
     ) internal {
         GuardianStorage storage $ = _getGuardianStorage();
-        if (!$.accountGuardians[account].contains(guardian))
+        if (!$.accountGuardians[account].contains(guardian)) {
             revert GuardianNotAdded();
+        }
 
         $.accountGuardians[account].updateStatus(guardian, newStatus);
         $.accountGuardiansConfig[account].incrementAcceptedCount();

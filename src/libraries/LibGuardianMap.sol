@@ -18,6 +18,7 @@ library LibGuardianMap {
         NONE, // 0 - Guardian doesn't exist (default for non-existent guardians)
         REQUESTED, // 1 - Guardian has been requested but not yet accepted
         ACCEPTED // 2 - Guardian has accepted their role
+
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -36,10 +37,10 @@ library LibGuardianMap {
     /// @param self The guardian set storage
     /// @param guardian The guardian address to add
     /// @return success True if guardian was added, false if already exists
-    function addGuardian(
-        EnumerableMapLib.AddressToUint256Map storage self,
-        address guardian
-    ) internal returns (bool success) {
+    function addGuardian(EnumerableMapLib.AddressToUint256Map storage self, address guardian)
+        internal
+        returns (bool success)
+    {
         // Check if guardian already exists
         if (self.contains(guardian)) {
             revert GuardianAlreadyExists();
@@ -52,10 +53,10 @@ library LibGuardianMap {
     /// @param self The guardian set storage
     /// @param guardian The guardian address to remove
     /// @return success True if guardian was removed, false if not found
-    function removeGuardian(
-        EnumerableMapLib.AddressToUint256Map storage self,
-        address guardian
-    ) internal returns (bool success) {
+    function removeGuardian(EnumerableMapLib.AddressToUint256Map storage self, address guardian)
+        internal
+        returns (bool success)
+    {
         if (!self.contains(guardian)) {
             revert GuardianNotFound();
         }
@@ -67,10 +68,10 @@ library LibGuardianMap {
     /// @param self The guardian set storage
     /// @param guardian The guardian address to update
     /// @return success True if status was updated successfully
-    function acceptGuardian(
-        EnumerableMapLib.AddressToUint256Map storage self,
-        address guardian
-    ) internal returns (bool success) {
+    function acceptGuardian(EnumerableMapLib.AddressToUint256Map storage self, address guardian)
+        internal
+        returns (bool success)
+    {
         if (!self.contains(guardian)) {
             revert GuardianNotFound();
         }
@@ -118,10 +119,11 @@ library LibGuardianMap {
     /// @param self The guardian set storage
     /// @param guardian The guardian address to check
     /// @return status The guardian's current status (NONE if not found)
-    function getStatus(
-        EnumerableMapLib.AddressToUint256Map storage self,
-        address guardian
-    ) internal view returns (GuardianStatus status) {
+    function getStatus(EnumerableMapLib.AddressToUint256Map storage self, address guardian)
+        internal
+        view
+        returns (GuardianStatus status)
+    {
         if (!self.contains(guardian)) {
             return GuardianStatus.NONE;
         }
@@ -132,10 +134,11 @@ library LibGuardianMap {
     /// @param self The guardian set storage
     /// @param guardian The guardian address to check
     /// @return isAccepted True if guardian exists and has ACCEPTED status
-    function isAccepted(
-        EnumerableMapLib.AddressToUint256Map storage self,
-        address guardian
-    ) internal view returns (bool isAccepted) {
+    function isAccepted(EnumerableMapLib.AddressToUint256Map storage self, address guardian)
+        internal
+        view
+        returns (bool isAccepted)
+    {
         return getStatus(self, guardian) == GuardianStatus.ACCEPTED;
     }
 
@@ -143,10 +146,11 @@ library LibGuardianMap {
     /// @param self The guardian set storage
     /// @param guardian The guardian address to check
     /// @return isRequested True if guardian exists and has REQUESTED status
-    function isRequested(
-        EnumerableMapLib.AddressToUint256Map storage self,
-        address guardian
-    ) internal view returns (bool isRequested) {
+    function isRequested(EnumerableMapLib.AddressToUint256Map storage self, address guardian)
+        internal
+        view
+        returns (bool isRequested)
+    {
         return getStatus(self, guardian) == GuardianStatus.REQUESTED;
     }
 
@@ -158,10 +162,11 @@ library LibGuardianMap {
     /// @param from Current status
     /// @param to New status
     /// @return isValid True if transition is allowed
-    function _isValidTransition(
-        GuardianStatus from,
-        GuardianStatus to
-    ) private pure returns (bool isValid) {
+    function _isValidTransition(GuardianStatus from, GuardianStatus to)
+        private
+        pure
+        returns (bool isValid)
+    {
         // REQUESTED -> ACCEPTED is always valid
         if (from == GuardianStatus.REQUESTED && to == GuardianStatus.ACCEPTED) {
             return true;

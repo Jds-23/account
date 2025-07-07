@@ -42,15 +42,14 @@ library LibGuardianConfig {
     /// @param self The bytes storage to write to
     /// @param guardianCount Total number of guardians to configure
     /// @param threshold Minimum guardians required for consensus (must be 0 when acceptedCount is 0)
-    function initConfig(
-        LibBytes.BytesStorage storage self,
-        uint8 guardianCount,
-        uint8 threshold
-    ) internal {
+    function initConfig(LibBytes.BytesStorage storage self, uint8 guardianCount, uint8 threshold)
+        internal
+    {
         // Validate configuration
         if (guardianCount > MAX_GUARDIANS) revert MaxGuardiansExceeded();
-        if (threshold == 0 || threshold > guardianCount)
+        if (threshold == 0 || threshold > guardianCount) {
             revert InvalidThreshold();
+        }
 
         self.set(
             abi.encodePacked(
@@ -83,9 +82,7 @@ library LibGuardianConfig {
 
     /// @notice Increment the guardian count
     /// @param self The bytes storage to modify
-    function incrementGuardianCount(
-        LibBytes.BytesStorage storage self
-    ) internal {
+    function incrementGuardianCount(LibBytes.BytesStorage storage self) internal {
         uint8 currentCount = self.uint8At(GUARDIAN_COUNT_INDEX);
         if (currentCount >= MAX_GUARDIANS) revert MaxGuardiansExceeded();
 
@@ -96,9 +93,7 @@ library LibGuardianConfig {
 
     /// @notice Decrement the guardian count
     /// @param self The bytes storage to modify
-    function decrementGuardianCount(
-        LibBytes.BytesStorage storage self
-    ) internal {
+    function decrementGuardianCount(LibBytes.BytesStorage storage self) internal {
         uint8 currentCount = self.uint8At(GUARDIAN_COUNT_INDEX);
         if (currentCount == 0) revert GuardianCountUnderflow();
 
@@ -115,23 +110,20 @@ library LibGuardianConfig {
 
     /// @notice Increment the accepted guardian count
     /// @param self The bytes storage to modify
-    function incrementAcceptedCount(
-        LibBytes.BytesStorage storage self
-    ) internal {
+    function incrementAcceptedCount(LibBytes.BytesStorage storage self) internal {
         uint8 currentAccepted = self.uint8At(ACCEPTED_COUNT_INDEX);
         uint8 totalGuardians = self.uint8At(GUARDIAN_COUNT_INDEX);
 
-        if (currentAccepted >= totalGuardians)
+        if (currentAccepted >= totalGuardians) {
             revert AcceptedCountExceedsTotal();
+        }
 
         _updateByteAt(self, ACCEPTED_COUNT_INDEX, currentAccepted + 1);
     }
 
     /// @notice Decrement the accepted guardian count
     /// @param self The bytes storage to modify
-    function decrementAcceptedCount(
-        LibBytes.BytesStorage storage self
-    ) internal {
+    function decrementAcceptedCount(LibBytes.BytesStorage storage self) internal {
         uint8 currentAccepted = self.uint8At(ACCEPTED_COUNT_INDEX);
         if (currentAccepted == 0) revert AcceptedCountUnderflow();
 
@@ -143,10 +135,7 @@ library LibGuardianConfig {
     /// @notice Set the threshold for guardian consensus
     /// @param self The bytes storage to modify
     /// @param threshold The new threshold value
-    function setThreshold(
-        LibBytes.BytesStorage storage self,
-        uint8 threshold
-    ) internal {
+    function setThreshold(LibBytes.BytesStorage storage self, uint8 threshold) internal {
         uint8 acceptedCount = self.uint8At(ACCEPTED_COUNT_INDEX);
 
         if (threshold == 0 && acceptedCount > 0) revert InvalidThreshold();
@@ -162,27 +151,21 @@ library LibGuardianConfig {
     /// @notice Get the current guardian count
     /// @param self The bytes storage to read from
     /// @return The number of guardians
-    function getGuardianCount(
-        LibBytes.BytesStorage storage self
-    ) internal view returns (uint8) {
+    function getGuardianCount(LibBytes.BytesStorage storage self) internal view returns (uint8) {
         return self.uint8At(GUARDIAN_COUNT_INDEX);
     }
 
     /// @notice Get the current accepted guardian count
     /// @param self The bytes storage to read from
     /// @return The number of accepted guardians
-    function getAcceptedCount(
-        LibBytes.BytesStorage storage self
-    ) internal view returns (uint8) {
+    function getAcceptedCount(LibBytes.BytesStorage storage self) internal view returns (uint8) {
         return self.uint8At(ACCEPTED_COUNT_INDEX);
     }
 
     /// @notice Get the current threshold
     /// @param self The bytes storage to read from
     /// @return The threshold value
-    function getThreshold(
-        LibBytes.BytesStorage storage self
-    ) internal view returns (uint8) {
+    function getThreshold(LibBytes.BytesStorage storage self) internal view returns (uint8) {
         return self.uint8At(THRESHOLD_INDEX);
     }
 
@@ -190,10 +173,11 @@ library LibGuardianConfig {
     /// @param self The bytes storage to read from
     /// @param confirmations Number of guardian confirmations
     /// @return Whether the threshold is met
-    function isThresholdMet(
-        LibBytes.BytesStorage storage self,
-        uint8 confirmations
-    ) internal view returns (bool) {
+    function isThresholdMet(LibBytes.BytesStorage storage self, uint8 confirmations)
+        internal
+        view
+        returns (bool)
+    {
         uint8 threshold = self.uint8At(THRESHOLD_INDEX);
         return confirmations >= threshold && threshold > 0;
     }
@@ -206,11 +190,9 @@ library LibGuardianConfig {
     /// @param self The bytes storage to modify
     /// @param index The byte index to update
     /// @param value The new byte value
-    function _updateByteAt(
-        LibBytes.BytesStorage storage self,
-        uint256 index,
-        uint8 value
-    ) private {
+    function _updateByteAt(LibBytes.BytesStorage storage self, uint256 index, uint8 value)
+        private
+    {
         // Get current data
         bytes memory currentData = self.get();
 

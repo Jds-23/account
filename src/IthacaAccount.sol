@@ -271,7 +271,9 @@ contract IthacaAccount is IIthacaAccount, EIP712, GuardedExecutor {
         virtual
         onlyThis
     {
-        if (_getAccountStorage().keyStorage[keyHash].isEmpty()) revert KeyDoesNotExist();
+        if (_getAccountStorage().keyStorage[keyHash].isEmpty()) {
+            revert KeyDoesNotExist();
+        }
         _getKeyExtraStorage(keyHash).checkers.update(checker, isApproved, _CAP);
         emit SignatureCheckerApprovalSet(keyHash, checker, isApproved);
     }
@@ -314,6 +316,8 @@ contract IthacaAccount is IIthacaAccount, EIP712, GuardedExecutor {
         // Always returns true for cheaper call success check (even in plain Solidity).
         return true;
     }
+
+    ///
 
     ////////////////////////////////////////////////////////////////////////
     // Public View Functions
@@ -489,7 +493,9 @@ contract IthacaAccount is IIthacaAccount, EIP712, GuardedExecutor {
         Key memory key = getKey(keyHash);
 
         // Early return if the key has expired.
-        if (LibBit.and(key.expiry != 0, block.timestamp > key.expiry)) return (false, keyHash);
+        if (LibBit.and(key.expiry != 0, block.timestamp > key.expiry)) {
+            return (false, keyHash);
+        }
 
         if (key.keyType == KeyType.P256) {
             // The try decode functions returns `(0,0)` if the bytes is too short,
@@ -544,7 +550,9 @@ contract IthacaAccount is IIthacaAccount, EIP712, GuardedExecutor {
     /// @dev Adds the key. If the key already exist, its expiry will be updated.
     function _addKey(Key memory key) internal virtual returns (bytes32 keyHash) {
         if (key.isSuperAdmin) {
-            if (!_keyTypeCanBeSuperAdmin(key.keyType)) revert KeyTypeCannotBeSuperAdmin();
+            if (!_keyTypeCanBeSuperAdmin(key.keyType)) {
+                revert KeyTypeCannotBeSuperAdmin();
+            }
         }
         // `keccak256(abi.encode(key.keyType, keccak256(key.publicKey)))`.
         keyHash = hash(key);
