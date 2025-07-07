@@ -2,7 +2,6 @@
 pragma solidity ^0.8.23;
 
 import {IEmailRecoveryCommandHandler} from "./interfaces/IEmailRecoveryCommandHandler.sol";
-import {IthacaAccount} from "./IthacaAccount.sol";
 import {IIthacaAccount} from "./interfaces/IIthacaAccount.sol";
 import {ERC7821} from "solady/accounts/ERC7821.sol";
 import {ZKEmailSigner} from "./ZKEmailSigner.sol";
@@ -66,46 +65,22 @@ contract IthacaAccountRecoveryCommandHandler is IEmailRecoveryCommandHandler {
     /// @inheritdoc IEmailRecoveryCommandHandler
     function extractRecoveredAccountFromAcceptanceCommand(
         bytes[] memory commandParams,
-        uint256 templateIdx
-    ) external view override returns (address) {
-        if (templateIdx >= this.acceptanceCommandTemplates().length) {
-            revert InvalidTemplateIndex();
-        }
-
+        uint256 /* templateIdx */
+    ) external pure override returns (address) {
         // For template 0: ["Accept", "guardian", "request", "for", "{ethAddr}"]
         // commandParams[0] should be the account address
-        if (commandParams.length != 1) {
-            revert InvalidCommandParams();
-        }
-
         address account = abi.decode(commandParams[0], (address));
-        if (account == address(0)) {
-            revert InvalidAccountAddress();
-        }
-
         return account;
     }
 
     /// @inheritdoc IEmailRecoveryCommandHandler
     function extractRecoveredAccountFromRecoveryCommand(
         bytes[] memory commandParams,
-        uint256 templateIdx
-    ) external view override returns (address) {
-        if (templateIdx >= this.recoveryCommandTemplates().length) {
-            revert InvalidTemplateIndex();
-        }
-
+        uint256 /* templateIdx */
+    ) external pure override returns (address) {
         // For template 0: ["Recover", "account", "{ethAddr}", "by", "replacing", "key", "{string}", "with", "{string}"]
         // commandParams[0] should be the account address
-        if (commandParams.length != 3) {
-            revert InvalidCommandParams();
-        }
-
         address account = abi.decode(commandParams[0], (address));
-        if (account == address(0)) {
-            revert InvalidAccountAddress();
-        }
-
         return account;
     }
 
@@ -116,7 +91,23 @@ contract IthacaAccountRecoveryCommandHandler is IEmailRecoveryCommandHandler {
         override
         returns (address)
     {
-        return this.extractRecoveredAccountFromAcceptanceCommand(commandParams, templateIdx);
+        if (templateIdx >= this.acceptanceCommandTemplates().length) {
+            revert InvalidTemplateIndex();
+        }
+
+        // For template 0: ["Accept", "guardian", "request", "for", "{ethAddr}"]
+        // commandParams[0] should be the account address
+        if (commandParams.length != 1) {
+            revert InvalidCommandParams();
+        }
+
+        address account =
+            this.extractRecoveredAccountFromAcceptanceCommand(commandParams, templateIdx);
+        if (account == address(0)) {
+            revert InvalidAccountAddress();
+        }
+
+        return account;
     }
 
     /// @inheritdoc IEmailRecoveryCommandHandler
@@ -126,8 +117,21 @@ contract IthacaAccountRecoveryCommandHandler is IEmailRecoveryCommandHandler {
         override
         returns (address)
     {
+        if (templateIdx >= this.recoveryCommandTemplates().length) {
+            revert InvalidTemplateIndex();
+        }
+
+        // For template 0: ["Recover", "account", "{ethAddr}", "by", "replacing", "key", "{string}", "with", "{string}"]
+        // commandParams[0] should be the account address
+        if (commandParams.length != 3) {
+            revert InvalidCommandParams();
+        }
+
         address account =
             this.extractRecoveredAccountFromRecoveryCommand(commandParams, templateIdx);
+        if (account == address(0)) {
+            revert InvalidAccountAddress();
+        }
 
         // Additional validation for recovery command
         if (templateIdx == 0) {
@@ -154,16 +158,10 @@ contract IthacaAccountRecoveryCommandHandler is IEmailRecoveryCommandHandler {
         override
         returns (bytes32)
     {
-        if (templateIdx >= this.recoveryCommandTemplates().length) {
-            revert InvalidTemplateIndex();
-        }
-
-        // For template 0: hash of (keyHashToRevoke, newKeyData)
-        if (commandParams.length != 3) {
-            revert InvalidCommandParams();
-        }
-
+        // Validate all parameters first
         address account = this.validateRecoveryCommand(templateIdx, commandParams);
+
+        // Extract/decode data using extract functions
         bytes32 keyHashToRevoke = abi.decode(commandParams[1], (bytes32));
         IthacaAccount.Key memory newKey = abi.decode(commandParams[2], (IthacaAccount.Key));
 
