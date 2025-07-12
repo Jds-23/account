@@ -5,6 +5,7 @@ import {IEmailRecoveryCommandHandler} from "./interfaces/IEmailRecoveryCommandHa
 import {IIthacaAccount} from "./interfaces/IIthacaAccount.sol";
 import {ERC7821} from "solady/accounts/ERC7821.sol";
 import {ZKEmailSigner} from "./ZKEmailSigner.sol";
+import {IthacaAccount} from "./IthacaAccount.sol";
 
 /// @title IthacaAccountRecoveryCommandHandler
 /// @notice Custom command handler for IthacaAccount email recovery
