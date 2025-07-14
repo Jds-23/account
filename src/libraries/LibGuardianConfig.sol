@@ -5,6 +5,13 @@ import {LibBytes} from "solady/utils/LibBytes.sol";
 /// @note need handle cases where, initialy threshold > acceptedCount. So removal of accepted guardian will cause underflow.
 /// let's consider acceptedCount can be < threshold
 
+struct GuardianConfig {
+    uint8 guardianCount;
+    uint8 acceptedCount;
+    uint8 threshold;
+    uint208 reserved;
+}
+
 /// @title LibGuardianConfig
 /// @notice Helper library for managing guardian configurations using optimized byte storage
 /// @dev Uses LibBytes for gas-efficient storage of guardian data
@@ -60,21 +67,23 @@ library LibGuardianConfig {
         );
     }
 
-    // /// @notice Load guardian configuration from storage
-    // /// @param self The bytes storage to read from
-    // /// @return config The unpacked guardian configuration
-    // function loadConfig(
-    //     LibBytes.BytesStorage storage self
-    // ) internal view returns (GuardianConfig memory config) {
-    //     if (self.isEmpty()) {
-    //         return GuardianConfig(0, 0, 0, 0);
-    //     }
+    /// @notice Load guardian configuration from storage
+    /// @param self The bytes storage to read from
+    /// @return config The unpacked guardian configuration
+    function loadConfig(LibBytes.BytesStorage storage self)
+        internal
+        view
+        returns (GuardianConfig memory config)
+    {
+        if (self.isEmpty()) {
+            return GuardianConfig(0, 0, 0, 0);
+        }
 
-    //     config.guardianCount = self.uint8At(GUARDIAN_COUNT_INDEX);
-    //     config.acceptedCount = self.uint8At(ACCEPTED_COUNT_INDEX);
-    //     config.threshold = self.uint8At(THRESHOLD_INDEX);
-    //     config.reserved = 0; // Always 0 for now
-    // }
+        config.guardianCount = self.uint8At(GUARDIAN_COUNT_INDEX);
+        config.acceptedCount = self.uint8At(ACCEPTED_COUNT_INDEX);
+        config.threshold = self.uint8At(THRESHOLD_INDEX);
+        config.reserved = 0; // Always 0 for now
+    }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                   GUARDIAN COUNT OPERATIONS                */

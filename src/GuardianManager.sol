@@ -4,7 +4,7 @@ pragma solidity ^0.8.23;
 import {LibBytes} from "solady/utils/LibBytes.sol";
 import {EnumerableMapLib} from "solady/utils/EnumerableMapLib.sol";
 import {LibGuardianMap} from "./libraries/LibGuardianMap.sol";
-import {LibGuardianConfig} from "./libraries/LibGuardianConfig.sol";
+import {LibGuardianConfig, GuardianConfig} from "./libraries/LibGuardianConfig.sol";
 
 abstract contract GuardianManager {
     using LibBytes for LibBytes.BytesStorage;
@@ -24,14 +24,6 @@ abstract contract GuardianManager {
         mapping(address => EnumerableMapLib.AddressToUint256Map) accountGuardians;
     }
 
-    // function _getGuardianConfig(address account)
-    //     internal
-    //     view
-    //     returns (GuardianConfig memory config)
-    // {
-    //     return LibGuardianConfig.loadConfig(accountGuardiansConfig[account]);
-    // }
-
     /// @dev Returns the storage pointer.
     function _getGuardianStorage() internal pure returns (GuardianStorage storage $) {
         // Truncate to 9 bytes to reduce bytecode size.
@@ -39,6 +31,15 @@ abstract contract GuardianManager {
         assembly ("memory-safe") {
             $.slot := s
         }
+    }
+
+    function _getGuardianConfig(address account)
+        internal
+        view
+        returns (GuardianConfig memory config)
+    {
+        GuardianStorage storage $ = _getGuardianStorage();
+        return $.accountGuardiansConfig[account].loadConfig();
     }
 
     ////////////////////////////////////////////////////////////////////////
