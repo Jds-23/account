@@ -165,7 +165,34 @@ abstract contract GuardianManager {
         }
 
         $.accountGuardians[account].updateStatus(guardian, newStatus);
-        $.accountGuardiansConfig[account].incrementAcceptedCount();
+        if (newStatus == LibGuardianMap.GuardianStatus.ACCEPTED) {
+            $.accountGuardiansConfig[account].incrementAcceptedCount();
+        }
         emit GuardianStatusChanged(account, guardian, newStatus);
+    }
+
+    ////////////////////////////////////////////////////////////////////////
+    // View Functions
+    ////////////////////////////////////////////////////////////////////////
+
+    /**
+     * @notice Returns the status of a guardian for a given account
+     * @param account The address of the account
+     * @param guardian The address of the guardian
+     * @return status The status of the guardian (as uint8)
+     */
+    function getGuardian(address account, address guardian) public view returns (uint8 status) {
+        GuardianStorage storage $ = _getGuardianStorage();
+        status = uint8($.accountGuardians[account].getStatus(guardian));
+    }
+
+    /**
+     * @notice Returns the threshold for a given account
+     * @param account The address of the account
+     * @return threshold The threshold value
+     */
+    function getThreshold(address account) public view returns (uint8 threshold) {
+        GuardianStorage storage $ = _getGuardianStorage();
+        threshold = $.accountGuardiansConfig[account].getThreshold();
     }
 }

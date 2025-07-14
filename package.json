@@ -9,5 +9,8 @@
   },
   "devDependencies": {
     "@changesets/cli": "^2.28.1"
+  },
+  "dependencies": {
+    "@zk-email/ether-email-auth-contracts": "^1.1.0"
   }
 }
