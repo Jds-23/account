@@ -78,7 +78,11 @@ abstract contract EmailRecoveryManager is GuardianManager {
     }
 
     /// @dev Returns the storage pointer.
-    function _getRecoveryStorage() internal pure returns (RecoveryStorage storage $) {
+    function _getRecoveryStorage()
+        internal
+        pure
+        returns (RecoveryStorage storage $)
+    {
         // Truncate to 9 bytes to reduce bytecode size.
         uint256 s = uint72(bytes9(keccak256("ITHACA_RECOVERY_STORAGE")));
         assembly ("memory-safe") {
@@ -123,7 +127,10 @@ abstract contract EmailRecoveryManager is GuardianManager {
     /// @dev The guardian has already voted
     error GuardianAlreadyVoted();
     /// @dev The recovery data hash is invalid
-    error InvalidRecoveryDataHash(bytes32 recoveryDataHash, bytes32 cachedRecoveryDataHash);
+    error InvalidRecoveryDataHash(
+        bytes32 recoveryDataHash,
+        bytes32 cachedRecoveryDataHash
+    );
     /// @dev The verifier address is invalid (zero address)
     error InvalidVerifier();
     /// @dev The DKIM address is invalid (zero address)
@@ -136,19 +143,37 @@ abstract contract EmailRecoveryManager is GuardianManager {
     error InvalidFactory();
     /// @dev The minimum delay is invalid (zero)
     error InvalidMinimumDelay();
+    /// @dev The recovery is not in progress
+    error RecoveryNotInProgress();
 
     ////////////////////////////////////////////////////////////////////////
     // Events
     ////////////////////////////////////////////////////////////////////////
 
-    event RecoveryConfigured(address indexed account, uint256 guardianCount, uint8 threshold);
-    event RecoveryConfigUpdated(address indexed account, uint128 delay, uint128 expiry);
+    event RecoveryConfigured(
+        address indexed account,
+        uint256 guardianCount,
+        uint8 threshold
+    );
+    event RecoveryConfigUpdated(
+        address indexed account,
+        uint128 delay,
+        uint128 expiry
+    );
     event GuardianAccepted(address indexed account, address indexed guardian);
     event GuardianVoted(address indexed account, address indexed guardian);
     event RecoveryRequestStarted(
-        address indexed account, address indexed guardian, uint128 expiry, bytes32 recoveryDataHash
+        address indexed account,
+        address indexed guardian,
+        uint128 expiry,
+        bytes32 recoveryDataHash
     );
-    event RecoveryRequestCompleted(address indexed account, bytes32 recoveryDataHash);
+    event RecoveryRequestCompleted(
+        address indexed account,
+        bytes32 recoveryDataHash
+    );
+    event RecoveryCancelled(address indexed account);
+    event RecoveryCompleted(address indexed account, bytes32 recoveryDataHash);
 
     ////////////////////////////////////////////////////////////////////////
     // View Functions
@@ -158,17 +183,27 @@ abstract contract EmailRecoveryManager is GuardianManager {
     /// @dev This function is virtual and should be implemented by inheriting contracts.
     /// @param recoveredAccount The address of the account to be recovered.
     /// @return True if the account is already activated, false otherwise.
-    function isActivated(address recoveredAccount) public view virtual returns (bool);
+    function isActivated(
+        address recoveredAccount
+    ) public view virtual returns (bool);
 
     /// @notice Returns a two-dimensional array of strings representing the command templates for an acceptance by a new guardian's.
     /// @dev This function is virtual and should be implemented by inheriting contracts to define specific acceptance command templates.
     /// @return A two-dimensional array of strings, where each inner array represents a set of fixed strings and matchers for a command template.
-    function acceptanceCommandTemplates() public view virtual returns (string[][] memory);
+    function acceptanceCommandTemplates()
+        public
+        view
+        virtual
+        returns (string[][] memory);
 
     /// @notice Returns a two-dimensional array of strings representing the command templates for email recovery.
     /// @dev This function is virtual and should be implemented by inheriting contracts to define specific recovery command templates.
     /// @return A two-dimensional array of strings, where each inner array represents a set of fixed strings and matchers for a command template.
-    function recoveryCommandTemplates() public view virtual returns (string[][] memory);
+    function recoveryCommandTemplates()
+        public
+        view
+        virtual
+        returns (string[][] memory);
 
     /// @notice Extracts the account address to be recovered from the command parameters of an acceptance email.
     /// @dev This function is virtual and should be implemented by inheriting contracts to extract the account address from the command parameters.
@@ -192,7 +227,10 @@ abstract contract EmailRecoveryManager is GuardianManager {
     /// @dev This function must be implemented by inheriting contracts to finalize the recovery process.
     /// @param account The address of the account to be recovered.
     /// @param completeCalldata The calldata for the recovery process.
-    function completeRecovery(address account, bytes memory completeCalldata) external virtual;
+    function completeRecovery(
+        address account,
+        bytes memory completeCalldata
+    ) external virtual;
 
     /// @notice Computes the address for email auth contract using the ERC1967Factory contract.
     /// @dev This function utilizes the `ERC1967Factory` contract to compute the address. The computation uses a provided account address to be recovered, account salt,
@@ -201,12 +239,10 @@ abstract contract EmailRecoveryManager is GuardianManager {
     /// @param recoveredAccount The address of the account to be recovered.
     /// @param accountSalt A bytes32 salt value defined as a hash of the guardian's email address and an account code. This is assumed to be unique to a pair of the guardian's email address and the wallet address to be recovered.
     /// @return The computed address.
-    function computeEmailAuthAddress(address recoveredAccount, bytes32 accountSalt)
-        public
-        view
-        virtual
-        returns (address)
-    {
+    function computeEmailAuthAddress(
+        address recoveredAccount,
+        bytes32 accountSalt
+    ) public view virtual returns (address) {
         bytes32 salt;
         assembly ("memory-safe") {
             mstore(0x00, recoveredAccount)
@@ -217,11 +253,9 @@ abstract contract EmailRecoveryManager is GuardianManager {
     }
 
     /// @dev Returns the recovery config for the account.
-    function getRecoveryConfig(address account)
-        public
-        view
-        returns (RecoveryConfig memory config)
-    {
+    function getRecoveryConfig(
+        address account
+    ) public view returns (RecoveryConfig memory config) {
         bytes memory data = _getRecoveryStorage().recoveryConfig[account].get();
         unchecked {
             uint256 packed = uint256(LibBytes.load(data, 0));
@@ -235,17 +269,20 @@ abstract contract EmailRecoveryManager is GuardianManager {
     /// @param recoveredAccount The address of the account to be recovered.
     /// @param accountSalt A bytes32 salt value used to ensure the uniqueness of the deployed proxy address.
     /// @return address The address of the newly deployed proxy contract.
-    function deployEmailAuthProxy(address recoveredAccount, bytes32 accountSalt)
-        internal
-        virtual
-        returns (address)
-    {
-        return factory.deployDeterministicAndCall(
-            emailAuthImplementation,
-            address(this),
-            keccak256(abi.encodePacked(recoveredAccount, accountSalt)),
-            abi.encodeCall(EmailAuth.initialize, (recoveredAccount, accountSalt, address(this)))
-        );
+    function deployEmailAuthProxy(
+        address recoveredAccount,
+        bytes32 accountSalt
+    ) internal virtual returns (address) {
+        return
+            factory.deployDeterministicAndCall(
+                emailAuthImplementation,
+                address(this),
+                keccak256(abi.encodePacked(recoveredAccount, accountSalt)),
+                abi.encodeCall(
+                    EmailAuth.initialize,
+                    (recoveredAccount, accountSalt, address(this))
+                )
+            );
     }
 
     /// @notice Calculates a unique command template ID for an acceptance command template using its index.
@@ -253,7 +290,9 @@ abstract contract EmailRecoveryManager is GuardianManager {
     /// then uses keccak256 to hash these values into a uint ID.
     /// @param templateIdx The index of the acceptance command template.
     /// @return uint The computed uint ID.
-    function computeAcceptanceTemplateId(uint256 templateIdx) public pure returns (uint256) {
+    function computeAcceptanceTemplateId(
+        uint256 templateIdx
+    ) public pure returns (uint256) {
         uint256 templateId;
         assembly ("memory-safe") {
             mstore(0x00, EMAIL_ACCOUNT_RECOVERY_VERSION_ID)
@@ -269,7 +308,9 @@ abstract contract EmailRecoveryManager is GuardianManager {
     /// then uses keccak256 to hash these values into a uint256 ID.
     /// @param templateIdx The index of the recovery command template.
     /// @return uint The computed uint ID.
-    function computeRecoveryTemplateId(uint256 templateIdx) public pure returns (uint256) {
+    function computeRecoveryTemplateId(
+        uint256 templateIdx
+    ) public pure returns (uint256) {
         uint256 templateId;
         assembly ("memory-safe") {
             mstore(0x00, EMAIL_ACCOUNT_RECOVERY_VERSION_ID)
@@ -284,27 +325,39 @@ abstract contract EmailRecoveryManager is GuardianManager {
     /// @dev This function validates the email auth message, deploys a new EmailAuth contract as a proxy if validations pass and initializes the contract.
     /// @param emailAuthMsg The email auth message for the email send from the guardian.
     /// @param templateIdx The index of the command template for acceptance, which should match with the command in the given email auth message.
-    function handleAcceptance(EmailAuthMsg memory emailAuthMsg, uint256 templateIdx) external {
-        address recoveredAccount =
-            extractRecoveredAccountFromAcceptanceCommand(emailAuthMsg.commandParams, templateIdx);
+    function handleAcceptance(
+        EmailAuthMsg memory emailAuthMsg,
+        uint256 templateIdx
+    ) external {
+        address recoveredAccount = extractRecoveredAccountFromAcceptanceCommand(
+            emailAuthMsg.commandParams,
+            templateIdx
+        );
         if (recoveredAccount == address(0)) revert InvalidAccountInEmail();
-        address guardian = computeEmailAuthAddress(recoveredAccount, emailAuthMsg.proof.accountSalt);
+        address guardian = computeEmailAuthAddress(
+            recoveredAccount,
+            emailAuthMsg.proof.accountSalt
+        );
         uint256 templateId = computeAcceptanceTemplateId(templateIdx);
         if (templateId != emailAuthMsg.templateId) revert InvalidTemplateId();
         if (emailAuthMsg.proof.isCodeExist == false) revert IsCodeExistFalse();
 
         EmailAuth guardianEmailAuth;
         if (guardian.code.length == 0) {
-            address proxyAddress =
-                deployEmailAuthProxy(recoveredAccount, emailAuthMsg.proof.accountSalt);
+            address proxyAddress = deployEmailAuthProxy(
+                recoveredAccount,
+                emailAuthMsg.proof.accountSalt
+            );
             guardianEmailAuth = EmailAuth(proxyAddress);
             guardianEmailAuth.initDKIMRegistry(dkim);
             guardianEmailAuth.initVerifier(verifier);
-            string[][] memory acceptanceTemplates = acceptanceCommandTemplates();
+            string[][]
+                memory acceptanceTemplates = acceptanceCommandTemplates();
             uint256 acceptanceLength = acceptanceTemplates.length;
-            for (uint256 idx; idx < acceptanceLength;) {
+            for (uint256 idx; idx < acceptanceLength; ) {
                 guardianEmailAuth.insertCommandTemplate(
-                    computeAcceptanceTemplateId(idx), acceptanceTemplates[idx]
+                    computeAcceptanceTemplateId(idx),
+                    acceptanceTemplates[idx]
                 );
                 unchecked {
                     ++idx;
@@ -312,9 +365,10 @@ abstract contract EmailRecoveryManager is GuardianManager {
             }
             string[][] memory recoveryTemplates = recoveryCommandTemplates();
             uint256 recoveryLength = recoveryTemplates.length;
-            for (uint256 idx; idx < recoveryLength;) {
+            for (uint256 idx; idx < recoveryLength; ) {
                 guardianEmailAuth.insertCommandTemplate(
-                    computeRecoveryTemplateId(idx), recoveryTemplates[idx]
+                    computeRecoveryTemplateId(idx),
+                    recoveryTemplates[idx]
                 );
                 unchecked {
                     ++idx;
@@ -331,7 +385,10 @@ abstract contract EmailRecoveryManager is GuardianManager {
         // and does not return an error.
         guardianEmailAuth.authEmail(emailAuthMsg);
         _acceptGuardian(
-            guardian, templateIdx, emailAuthMsg.commandParams, emailAuthMsg.proof.emailNullifier
+            guardian,
+            templateIdx,
+            emailAuthMsg.commandParams,
+            emailAuthMsg.proof.emailNullifier
         );
     }
 
@@ -340,15 +397,29 @@ abstract contract EmailRecoveryManager is GuardianManager {
     /// Requires that the guardian is already deployed, and the template ID corresponds to the `templateId` in the given email auth message. Once validated.
     /// @param emailAuthMsg The email auth message for recovery.
     /// @param templateIdx The index of the command template for recovery, which should match with the command in the given email auth message.
-    function handleRecovery(EmailAuthMsg memory emailAuthMsg, uint256 templateIdx) external {
-        address recoveredAccount =
-            extractRecoveredAccountFromRecoveryCommand(emailAuthMsg.commandParams, templateIdx);
+    function handleRecovery(
+        EmailAuthMsg memory emailAuthMsg,
+        uint256 templateIdx
+    ) external {
+        address recoveredAccount = extractRecoveredAccountFromRecoveryCommand(
+            emailAuthMsg.commandParams,
+            templateIdx
+        );
         if (recoveredAccount == address(0)) revert InvalidAccountInEmail();
-        address guardian = computeEmailAuthAddress(recoveredAccount, emailAuthMsg.proof.accountSalt);
+        address guardian = computeEmailAuthAddress(
+            recoveredAccount,
+            emailAuthMsg.proof.accountSalt
+        );
         // Check if the guardian is deployed
         if (address(guardian).code.length == 0) revert GuardianNotDeployed();
         uint256 templateId = uint256(
-            keccak256(abi.encode(EMAIL_ACCOUNT_RECOVERY_VERSION_ID, "RECOVERY", templateIdx))
+            keccak256(
+                abi.encode(
+                    EMAIL_ACCOUNT_RECOVERY_VERSION_ID,
+                    "RECOVERY",
+                    templateIdx
+                )
+            )
         );
         if (templateId != emailAuthMsg.templateId) revert InvalidTemplateId();
 
@@ -359,7 +430,10 @@ abstract contract EmailRecoveryManager is GuardianManager {
         guardianEmailAuth.authEmail(emailAuthMsg);
 
         _processRecovery(
-            guardian, templateIdx, emailAuthMsg.commandParams, emailAuthMsg.proof.emailNullifier
+            guardian,
+            templateIdx,
+            emailAuthMsg.commandParams,
+            emailAuthMsg.proof.emailNullifier
         );
     }
 
@@ -409,9 +483,8 @@ abstract contract EmailRecoveryManager is GuardianManager {
         bytes[] memory commandParams,
         bytes32 /* nullifier */
     ) internal {
-        address account = IEmailRecoveryCommandHandler(commandHandler).validateAcceptanceCommand(
-            templateIdx, commandParams
-        );
+        address account = IEmailRecoveryCommandHandler(commandHandler)
+            .validateAcceptanceCommand(templateIdx, commandParams);
 
         RecoveryStorage storage $ = _getRecoveryStorage();
         if ($.recoveryDataHash[account] != bytes32(0)) {
@@ -427,7 +500,11 @@ abstract contract EmailRecoveryManager is GuardianManager {
             revert GuardianNotRequested();
         }
 
-        _updateGuardianStatus(account, guardian, LibGuardianMap.GuardianStatus.ACCEPTED);
+        _updateGuardianStatus(
+            account,
+            guardian,
+            LibGuardianMap.GuardianStatus.ACCEPTED
+        );
 
         emit GuardianAccepted(account, guardian);
     }
@@ -442,9 +519,8 @@ abstract contract EmailRecoveryManager is GuardianManager {
         bytes[] memory commandParams,
         bytes32 /* nullifier */
     ) internal {
-        address account = IEmailRecoveryCommandHandler(commandHandler).validateRecoveryCommand(
-            templateIdx, commandParams
-        );
+        address account = IEmailRecoveryCommandHandler(commandHandler)
+            .validateRecoveryCommand(templateIdx, commandParams);
 
         if (!isActivated(account)) {
             revert RecoveryIsNotActivated();
@@ -488,17 +564,70 @@ abstract contract EmailRecoveryManager is GuardianManager {
             unchecked {
                 expiryTime = uint128(block.timestamp) + recoveryConfig.expiry;
             }
-            emit RecoveryRequestStarted(account, guardian, expiryTime, recoveryDataHash);
+            emit RecoveryRequestStarted(
+                account,
+                guardian,
+                expiryTime,
+                recoveryDataHash
+            );
         } else if (cachedRecoveryDataHash != recoveryDataHash) {
-            revert InvalidRecoveryDataHash(recoveryDataHash, cachedRecoveryDataHash);
+            revert InvalidRecoveryDataHash(
+                recoveryDataHash,
+                cachedRecoveryDataHash
+            );
         }
 
         $.guardianVotedMapping[account].add(guardian);
 
         emit GuardianVoted(account, guardian);
 
-        if ($.guardianVotedMapping[account].length() >= guardianConfig.threshold) {
+        if (
+            $.guardianVotedMapping[account].length() >= guardianConfig.threshold
+        ) {
             emit RecoveryRequestCompleted(account, recoveryDataHash);
         }
+    }
+
+    ////////////////////////////////////////////////////////////////////////
+    // Cancel Recovery Functions
+    ////////////////////////////////////////////////////////////////////////
+
+    function cancelRecovery() external {
+        address account = msg.sender;
+        RecoveryStorage storage $ = _getRecoveryStorage();
+        if ($.recoveryDataHash[account] == bytes32(0)) {
+            revert RecoveryNotInProgress();
+        }
+        $.recoveryDataHash[account] = bytes32(0);
+        $.recoveryRequestTime[account] = 0;
+        _clearGuardianVotedMapping(account);
+        emit RecoveryCancelled(account);
+    }
+
+    function _clearGuardianVotedMapping(address account) internal {
+        RecoveryStorage storage $ = _getRecoveryStorage();
+        uint256 guardianCount = $.guardianVotedMapping[account].length();
+        for (uint256 idx; idx < guardianCount; ) {
+            $.guardianVotedMapping[account].remove(
+                $.guardianVotedMapping[account].at(idx)
+            );
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////
+    // Complete Recovery Functions
+    ////////////////////////////////////////////////////////////////////////
+
+    function _markRecoveryCompleted() internal {
+        address account = msg.sender;
+        RecoveryStorage storage $ = _getRecoveryStorage();
+        bytes32 recoveryDataHash = $.recoveryDataHash[account];
+        if (recoveryDataHash == bytes32(0)) {
+            revert RecoveryNotInProgress();
+        }
+        $.recoveryDataHash[account] = bytes32(0);
+        $.recoveryRequestTime[account] = 0;
+        _clearGuardianVotedMapping(account);
+        emit RecoveryCompleted(account, recoveryDataHash);
     }
 }
