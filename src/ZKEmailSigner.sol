@@ -31,7 +31,7 @@ abstract contract ZKEmailSigner is ISigner, EmailRecoveryManager {
     /// @dev This is a view function - recovery completion must be done via markRecoveryCompleted.
     function isValidSignatureWithKeyHash(
         bytes32 digest,
-        bytes32 /* keyHash */,
+        bytes32, /* keyHash */
         bytes memory /* signature */
     ) external view override returns (bytes4 magicValue) {
         // Get the account address (msg.sender should be the IthacaAccount)
