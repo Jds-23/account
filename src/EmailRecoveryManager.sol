@@ -260,10 +260,11 @@ abstract contract EmailRecoveryManager is GuardianManager {
     function computeAcceptanceTemplateId(uint256 templateIdx) public pure returns (uint256) {
         uint256 templateId;
         assembly ("memory-safe") {
-            mstore(0x00, EMAIL_ACCOUNT_RECOVERY_VERSION_ID)
-            mstore(0x20, "ACCEPTANCE")
-            mstore(0x40, templateIdx)
-            templateId := keccak256(0x00, 0x60)
+            let ptr := mload(0x40)
+            mstore(ptr, EMAIL_ACCOUNT_RECOVERY_VERSION_ID)
+            mstore(add(ptr, 0x20), "ACCEPTANCE")
+            mstore(add(ptr, 0x40), templateIdx)
+            templateId := keccak256(ptr, 0x60)
         }
         return templateId;
     }
@@ -276,10 +277,11 @@ abstract contract EmailRecoveryManager is GuardianManager {
     function computeRecoveryTemplateId(uint256 templateIdx) public pure returns (uint256) {
         uint256 templateId;
         assembly ("memory-safe") {
-            mstore(0x00, EMAIL_ACCOUNT_RECOVERY_VERSION_ID)
-            mstore(0x20, "RECOVERY")
-            mstore(0x40, templateIdx)
-            templateId := keccak256(0x00, 0x60)
+            let ptr := mload(0x40)
+            mstore(ptr, EMAIL_ACCOUNT_RECOVERY_VERSION_ID)
+            mstore(add(ptr, 0x20), "RECOVERY")
+            mstore(add(ptr, 0x40), templateIdx)
+            templateId := keccak256(ptr, 0x60)
         }
         return templateId;
     }

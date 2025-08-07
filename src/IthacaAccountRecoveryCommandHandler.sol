@@ -6,6 +6,7 @@ import {IIthacaAccount} from "./interfaces/IIthacaAccount.sol";
 import {ERC7821} from "solady/accounts/ERC7821.sol";
 import {ZKEmailSigner} from "./ZKEmailSigner.sol";
 import {IthacaAccount} from "./IthacaAccount.sol";
+import {StringUtils} from "@zk-email/ether-email-auth-contracts/src/libraries/StringUtils.sol";
 
 /// @title IthacaAccountRecoveryCommandHandler
 /// @notice Custom command handler for IthacaAccount email recovery
@@ -26,6 +27,7 @@ contract IthacaAccountRecoveryCommandHandler is IEmailRecoveryCommandHandler {
     error InvalidAccountAddress();
     error InvalidKeyHash();
     error InvalidKeyData();
+    error InvalidHexString();
 
     ////////////////////////////////////////////////////////////////////////
     // Constants
@@ -136,15 +138,19 @@ contract IthacaAccountRecoveryCommandHandler is IEmailRecoveryCommandHandler {
 
         // Additional validation for recovery command
         if (templateIdx == 0) {
-            // Validate key hash and new key data format
-            bytes32 keyHashToRevoke = abi.decode(commandParams[1], (bytes32));
-            IthacaAccount.Key memory newKey = abi.decode(commandParams[2], (IthacaAccount.Key));
-
-            if (keyHashToRevoke == bytes32(0)) {
-                revert InvalidKeyHash();
+            // Validate key hash - should be a hex string from {string} parameter
+            string memory keyHashStr = abi.decode(commandParams[1], (string));
+            try StringUtils.hexToBytes32(keyHashStr) returns (bytes32 keyHashToRevoke) {
+                if (keyHashToRevoke == bytes32(0)) {
+                    revert InvalidKeyHash();
+                }
+            } catch {
+                revert InvalidHexString();
             }
 
-            if (newKey.publicKey.length == 0) {
+            // Validate new key data - should be JSON string from {string} parameter
+            string memory newKeyStr = abi.decode(commandParams[2], (string));
+            if (bytes(newKeyStr).length == 0) {
                 revert InvalidKeyData();
             }
         }
@@ -162,9 +168,15 @@ contract IthacaAccountRecoveryCommandHandler is IEmailRecoveryCommandHandler {
         // Validate all parameters first
         address account = this.validateRecoveryCommand(templateIdx, commandParams);
 
-        // Extract/decode data using extract functions
-        bytes32 keyHashToRevoke = abi.decode(commandParams[1], (bytes32));
-        IthacaAccount.Key memory newKey = abi.decode(commandParams[2], (IthacaAccount.Key));
+        // Extract/decode data - {string} parameters come as string values
+        string memory keyHashStr = abi.decode(commandParams[1], (string));
+        bytes32 keyHashToRevoke = StringUtils.hexToBytes32(keyHashStr);
+
+        string memory newKeyStr = abi.decode(commandParams[2], (string));
+        // For now, we expect the new key to be ABI-encoded as a hex string
+        // This might need adjustment based on the actual format expected
+        bytes memory newKeyBytes = StringUtils.hexToBytes(newKeyStr);
+        IthacaAccount.Key memory newKey = abi.decode(newKeyBytes, (IthacaAccount.Key));
 
         ERC7821.Call[] memory calls = new ERC7821.Call[](3);
         calls[0] = ERC7821.Call({
