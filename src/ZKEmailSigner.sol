@@ -4,11 +4,19 @@ pragma solidity ^0.8.23;
 import {IIthacaAccount} from "./interfaces/IIthacaAccount.sol";
 import {ISigner} from "./interfaces/ISigner.sol";
 import {EmailRecoveryManager} from "./EmailRecoveryManager.sol";
+import {IEmailRecoveryCommandHandler} from "./interfaces/IEmailRecoveryCommandHandler.sol";
+import {GuardianConfig} from "./libraries/LibGuardianConfig.sol";
 import {EnumerableSetLib} from "solady/utils/EnumerableSetLib.sol";
+
+/// @notice Error thrown when command parameters are invalid.
+error InvalidCommandParams();
+
+/// @notice Error thrown when recovery is not ready to be completed.
+error RecoveryNotReady();
 
 /// @title ZKEmailSigner
 /// @notice A Signer contract, that extends ZK-email functionality to the Porto Account.
-abstract contract ZKEmailSigner is ISigner, EmailRecoveryManager {
+contract ZKEmailSigner is ISigner, EmailRecoveryManager {
     using EnumerableSetLib for EnumerableSetLib.AddressSet;
 
     ////////////////////////////////////////////////////////////////////////
@@ -16,10 +24,37 @@ abstract contract ZKEmailSigner is ISigner, EmailRecoveryManager {
     ////////////////////////////////////////////////////////////////////////
 
     /// @dev The magic value returned by `isValidSignatureWithKeyHash` when the signature is valid.
-    bytes4 internal constant _MAGIC_VALUE = 0x1626ba7e;
+    bytes4 internal constant _MAGIC_VALUE = 0x8afc93b4;
 
     /// @dev The magic value returned by `isValidSignatureWithKeyHash` when the signature is invalid.
     bytes4 internal constant _FAIL_VALUE = 0xffffffff;
+
+    ////////////////////////////////////////////////////////////////////////
+    // Constructor
+    ////////////////////////////////////////////////////////////////////////
+
+    /// @notice Constructs the ZKEmailSigner with required EmailRecoveryManager dependencies.
+    /// @param _verifier The verifier contract address.
+    /// @param _dkim The DKIM registry contract address.
+    /// @param _emailAuthImpl The email auth implementation contract address.
+    /// @param _commandHandler The command handler contract address.
+    /// @param _minimumDelay The minimum delay for recovery.
+    /// @param _factory The ERC1967Factory contract address.
+    constructor(
+        address _verifier,
+        address _dkim,
+        address _emailAuthImpl,
+        address _commandHandler,
+        uint128 _minimumDelay,
+        address _factory
+    ) EmailRecoveryManager(
+        _verifier,
+        _dkim,
+        _emailAuthImpl,
+        _commandHandler,
+        _minimumDelay,
+        _factory
+    ) {}
 
     ////////////////////////////////////////////////////////////////////////
     // Signature Validation
@@ -67,5 +102,42 @@ abstract contract ZKEmailSigner is ISigner, EmailRecoveryManager {
 
     function markRecoveryCompleted() external {
         _markRecoveryCompleted();
+    }
+
+    ////////////////////////////////////////////////////////////////////////
+    // Required EmailRecoveryManager Implementations
+    ////////////////////////////////////////////////////////////////////////
+
+    /// @notice Returns if the account has activated this recovery manager.
+    function isActivated(address recoveredAccount) public view override returns (bool) {
+        // Check if recovery config exists for this account
+        GuardianConfig memory config = _getGuardianConfig(recoveredAccount);
+        return config.threshold > 0;
+    }
+
+    /// @notice Returns command templates for guardian acceptance emails.
+    function acceptanceCommandTemplates() public view override returns (string[][] memory) {
+        return IEmailRecoveryCommandHandler(commandHandler).acceptanceCommandTemplates();
+    }
+
+    /// @notice Returns command templates for recovery emails.
+    function recoveryCommandTemplates() public view override returns (string[][] memory) {
+        return IEmailRecoveryCommandHandler(commandHandler).recoveryCommandTemplates();
+    }
+
+    /// @notice Extracts the account address from acceptance command parameters.
+    function extractRecoveredAccountFromAcceptanceCommand(
+        bytes[] memory commandParams,
+        uint256 templateIdx
+    ) public view override returns (address) {
+        return IEmailRecoveryCommandHandler(commandHandler).extractRecoveredAccountFromAcceptanceCommand(commandParams, templateIdx);
+    }
+
+    /// @notice Extracts the account address from recovery command parameters.
+    function extractRecoveredAccountFromRecoveryCommand(
+        bytes[] memory commandParams,
+        uint256 templateIdx
+    ) public view override returns (address) {
+        return IEmailRecoveryCommandHandler(commandHandler).extractRecoveredAccountFromRecoveryCommand(commandParams, templateIdx);
     }
 }
