@@ -192,12 +192,6 @@ abstract contract EmailRecoveryManager is GuardianManager {
         uint256 templateIdx
     ) public view virtual returns (address);
 
-    /// @notice Completes the recovery process.
-    /// @dev This function must be implemented by inheriting contracts to finalize the recovery process.
-    /// @param account The address of the account to be recovered.
-    /// @param completeCalldata The calldata for the recovery process.
-    function completeRecovery(address account, bytes memory completeCalldata) external virtual;
-
     /// @notice Computes the address for email auth contract using the ERC1967Factory contract.
     /// @dev This function utilizes the `ERC1967Factory` contract to compute the address. The computation uses a provided account address to be recovered, account salt,
     /// and the hash of the encoded ERC1967Proxy creation code concatenated with the encoded email auth contract implementation
@@ -211,12 +205,9 @@ abstract contract EmailRecoveryManager is GuardianManager {
         virtual
         returns (address)
     {
-        bytes32 salt;
-        assembly ("memory-safe") {
-            mstore(0x00, recoveredAccount)
-            mstore(0x20, accountSalt)
-            salt := keccak256(0x00, 0x40)
-        }
+        // Generate salt with current contract address + last 12 bytes of hash
+        bytes32 hashResult = keccak256(abi.encodePacked(recoveredAccount, accountSalt));
+        bytes32 salt = bytes32(abi.encodePacked(address(this), bytes12(hashResult)));
         return factory.predictDeterministicAddress(salt);
     }
 
@@ -244,10 +235,13 @@ abstract contract EmailRecoveryManager is GuardianManager {
         virtual
         returns (address)
     {
+        // Generate salt with current contract address + last 12 bytes of hash
+        bytes32 hashResult = keccak256(abi.encodePacked(recoveredAccount, accountSalt));
+        bytes32 salt = bytes32(abi.encodePacked(address(this), bytes12(hashResult)));
         return factory.deployDeterministicAndCall(
             emailAuthImplementation,
             address(this),
-            keccak256(abi.encodePacked(recoveredAccount, accountSalt)),
+            salt,
             abi.encodeCall(EmailAuth.initialize, (recoveredAccount, accountSalt, address(this)))
         );
     }
@@ -353,9 +347,7 @@ abstract contract EmailRecoveryManager is GuardianManager {
         address guardian = computeEmailAuthAddress(recoveredAccount, emailAuthMsg.proof.accountSalt);
         // Check if the guardian is deployed
         if (address(guardian).code.length == 0) revert GuardianNotDeployed();
-        uint256 templateId = uint256(
-            keccak256(abi.encode(EMAIL_ACCOUNT_RECOVERY_VERSION_ID, "RECOVERY", templateIdx))
-        );
+        uint256 templateId = computeRecoveryTemplateId(templateIdx);
         if (templateId != emailAuthMsg.templateId) revert InvalidTemplateId();
 
         EmailAuth guardianEmailAuth = EmailAuth(payable(address(guardian)));
@@ -374,7 +366,7 @@ abstract contract EmailRecoveryManager is GuardianManager {
         uint8 threshold,
         uint128 delay,
         uint128 expiry
-    ) internal {
+    ) external {
         address account = msg.sender;
 
         // // Threshold can only be 0 at initialization.
@@ -383,12 +375,21 @@ abstract contract EmailRecoveryManager is GuardianManager {
             revert SetupAlreadyCalled();
         }
         _setupGuardians(account, guardians, threshold);
-        updateRecoveryConfig(delay, expiry);
+        
+        // Set recovery config inline
+        if (delay < minimumDelay) {
+            revert InvalidDelay();
+        }
+        if (delay > expiry) {
+            revert InvalidExpiry();
+        }
+        RecoveryStorage storage $ = _getRecoveryStorage();
+        $.recoveryConfig[account].set(abi.encodePacked(delay, expiry));
 
         emit RecoveryConfigured(account, guardians.length, threshold);
     }
 
-    function updateRecoveryConfig(uint128 delay, uint128 expiry) internal {
+    function updateRecoveryConfig(uint128 delay, uint128 expiry) external {
         address account = msg.sender;
         if (getThreshold(account) == 0) {
             revert ThresholdNotSet();
@@ -527,8 +528,9 @@ abstract contract EmailRecoveryManager is GuardianManager {
     function _clearGuardianVotedMapping(address account) internal {
         RecoveryStorage storage $ = _getRecoveryStorage();
         uint256 guardianCount = $.guardianVotedMapping[account].length();
-        for (uint256 idx; idx < guardianCount;) {
-            $.guardianVotedMapping[account].remove($.guardianVotedMapping[account].at(idx));
+        while (guardianCount > 0) {
+            guardianCount--;
+            $.guardianVotedMapping[account].remove($.guardianVotedMapping[account].at(guardianCount));
         }
     }
 
