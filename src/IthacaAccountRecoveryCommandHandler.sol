@@ -195,7 +195,7 @@ contract IthacaAccountRecoveryCommandHandler is IEmailRecoveryCommandHandler {
             data: abi.encodeWithSelector(ZKEmailSigner.markRecoveryCompleted.selector)
         });
 
-        uint256 nonce = IIthacaAccount(account).getNonce(0);
+        uint256 nonce = IIthacaAccount(account).getNonce(69);
         bytes32 digest = IIthacaAccount(account).computeDigest(calls, nonce);
 
         return digest;
