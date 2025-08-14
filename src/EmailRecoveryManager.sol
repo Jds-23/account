@@ -117,7 +117,7 @@ abstract contract EmailRecoveryManager is GuardianManager {
     /// @dev The guardian has already accepted
     error GuardianAlreadyAccepted();
     /// @dev The threshold exceeds the accepted guardian weight
-    error ThresholdExceedsAcceptedWeight();
+    error AcceptedGuardianCountBelowThreshold();
     /// @dev The guardian has not accepted
     error GuardianNotAccepted();
     /// @dev The guardian has already voted
@@ -375,7 +375,7 @@ abstract contract EmailRecoveryManager is GuardianManager {
             revert SetupAlreadyCalled();
         }
         _setupGuardians(account, guardians, threshold);
-        
+
         // Set recovery config inline
         if (delay < minimumDelay) {
             revert InvalidDelay();
@@ -459,7 +459,7 @@ abstract contract EmailRecoveryManager is GuardianManager {
 
         GuardianConfig memory guardianConfig = _getGuardianConfig(account);
         if (guardianConfig.threshold > guardianConfig.acceptedCount) {
-            revert ThresholdExceedsAcceptedWeight();
+            revert AcceptedGuardianCountBelowThreshold();
         }
 
         uint8 status = getGuardian(account, guardian);
@@ -530,7 +530,9 @@ abstract contract EmailRecoveryManager is GuardianManager {
         uint256 guardianCount = $.guardianVotedMapping[account].length();
         while (guardianCount > 0) {
             guardianCount--;
-            $.guardianVotedMapping[account].remove($.guardianVotedMapping[account].at(guardianCount));
+            $.guardianVotedMapping[account].remove(
+                $.guardianVotedMapping[account].at(guardianCount)
+            );
         }
     }
 

@@ -47,14 +47,9 @@ contract ZKEmailSigner is ISigner, EmailRecoveryManager {
         address _commandHandler,
         uint128 _minimumDelay,
         address _factory
-    ) EmailRecoveryManager(
-        _verifier,
-        _dkim,
-        _emailAuthImpl,
-        _commandHandler,
-        _minimumDelay,
-        _factory
-    ) {}
+    )
+        EmailRecoveryManager(_verifier, _dkim, _emailAuthImpl, _commandHandler, _minimumDelay, _factory)
+    {}
 
     ////////////////////////////////////////////////////////////////////////
     // Signature Validation
@@ -130,7 +125,8 @@ contract ZKEmailSigner is ISigner, EmailRecoveryManager {
         bytes[] memory commandParams,
         uint256 templateIdx
     ) public view override returns (address) {
-        return IEmailRecoveryCommandHandler(commandHandler).extractRecoveredAccountFromAcceptanceCommand(commandParams, templateIdx);
+        return IEmailRecoveryCommandHandler(commandHandler)
+            .extractRecoveredAccountFromAcceptanceCommand(commandParams, templateIdx);
     }
 
     /// @notice Extracts the account address from recovery command parameters.
@@ -138,6 +134,7 @@ contract ZKEmailSigner is ISigner, EmailRecoveryManager {
         bytes[] memory commandParams,
         uint256 templateIdx
     ) public view override returns (address) {
-        return IEmailRecoveryCommandHandler(commandHandler).extractRecoveredAccountFromRecoveryCommand(commandParams, templateIdx);
+        return IEmailRecoveryCommandHandler(commandHandler)
+            .extractRecoveredAccountFromRecoveryCommand(commandParams, templateIdx);
     }
 }
